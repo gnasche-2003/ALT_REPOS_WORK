@@ -1,0 +1,549 @@
+#include <ALTxBond30.h>
+
+EXEC SQL include sqlca.h;
+EXEC SQL include sqlda.h;
+
+typedef char asciz_2[3]; // 0 -> 2
+typedef char asciz_8[9]; 
+typedef char asciz_20[21]; 
+typedef char asciz_50[51]; 
+typedef char asciz_100[101];
+typedef char asciz_200[201]; 
+typedef char asciz_1024[1025]; 
+
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL TYPE asciz_2 IS STRING(2+1) REFERENCE;
+EXEC SQL TYPE asciz_8 IS STRING(8+1) REFERENCE;
+EXEC SQL TYPE asciz_20 IS STRING(20+1) REFERENCE;
+EXEC SQL TYPE asciz_50 IS STRING(50+1) REFERENCE;
+EXEC SQL TYPE asciz_100 IS STRING(100+1) REFERENCE;
+EXEC SQL TYPE asciz_200 IS STRING(200+1) REFERENCE;
+EXEC SQL TYPE asciz_1024 IS STRING(1024+1) REFERENCE;
+EXEC SQL END DECLARE SECTION;
+
+#define asciz_2(a) asciz_2 a; memset(a, 0x00, sizeof(asciz_2));
+#define asciz_8(a) asciz_8 a; memset(a, 0x00, sizeof(asciz_8));
+#define asciz_20(a) asciz_20 a; memset(a, 0x00, sizeof(asciz_20));
+#define asciz_50(a) asciz_50 a; memset(a, 0x00, sizeof(asciz_50));
+#define asciz_100(a) asciz_100 a; memset(a, 0x00, sizeof(asciz_100));
+#define asciz_200(a) asciz_200 a; memset(a, 0x00, sizeof(asciz_200));
+#define asciz_1024(a) asciz_1024 a; memset(a, 0x00, sizeof(asciz_1024));
+
+
+
+static int	ALTxBond30_3112_01_1(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti);
+static int	ALTxBond30_3112_01_2(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti);
+static int	ALTxBond30_3112_01_3(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti);
+static int	ALTxBond30_3112_01_4(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti);
+static int	ALTxBond30_3112_01_5(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti);
+
+int	ALTxBond30_3112_01(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode)
+{
+    
+    asciz_100(is_menu_tp);
+    asciz_100(is_apr_stat);
+	
+    if (GetGlobalParm(json, "AprStat", is_apr_stat, errcode) != GOOD) 
+    {
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+
+    if (GetGlobalParm(json, "Operation", is_menu_tp, errcode) != GOOD)
+    {
+        strcpy(errcode, "310000");
+        return ERROR;
+    }
+
+	//Add TCPH
+    if (strcmp(is_menu_tp, "I") == 0)
+    {
+
+        if (strcmp(is_apr_stat, "N") == 0)
+            return  ALTxBond30_3112_01_1(session, zmsg, json, jsonOut, errcode, ' ');
+        
+        //Hàm chấp nhận tạo mới
+        if (strcmp(is_apr_stat, "Y") == 0)
+			return  ALTxBond30_3112_01_2(session, zmsg, json, jsonOut, errcode, ' ');
+       
+        //Hàm từ chối tạo mới
+        if (strcmp(is_apr_stat, "D") == 0)
+			return  ALTxBond30_3112_01_3(session, zmsg, json, jsonOut, errcode, ' ');
+
+    }
+
+	//Update TCPH
+	if (strcmp(is_menu_tp, "U") == 0) {
+		if (strcmp(is_apr_stat, "N") == 0 || strcmp(is_apr_stat, "Y") == 0) 
+		{
+			return ALTxBond30_3112_01_4(session, zmsg, json, jsonOut, errcode, ' ');
+		}
+	}
+	//Xóa TCPH
+	if (strcmp(is_menu_tp, "D") == 0) {
+		if (strcmp(is_apr_stat, "N") == 0 || strcmp(is_apr_stat, "Y") == 0) 
+		{
+			return ALTxBond30_3112_01_5(session, zmsg, json, jsonOut, errcode, ' ');
+		}
+	}
+
+    strcpy(errcode, "310003");
+	return ERROR;
+}
+
+// Add TCPH 
+int ALTxBond30_3112_01_1(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti)
+{	
+
+    asciz_50(is_bnd_cd);
+    asciz_200(is_bnd_nm);
+
+    asciz_8(is_bnd_dt);
+    asciz_8(is_due_dt);
+	asciz_8(is_cur_dt);
+
+    asciz_100(is_bnd_qty);
+    asciz_100(is_par_val);
+	
+    asciz_2(is_trad_yn);
+
+	if (GOOD != GetParmNew(json, 1, errcode, is_bnd_cd, sizeof(is_bnd_cd))) 
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 2, errcode, is_bnd_nm, sizeof(is_bnd_nm))) 
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 3, errcode, is_bnd_dt, sizeof(is_bnd_dt))) 		
+		return ERROR;
+	 
+	if (GOOD != GetParmNew(json, 4, errcode, is_due_dt, sizeof(is_due_dt))) 
+		return ERROR;	
+
+	if (GOOD != GetParmNew(json, 5, errcode, is_bnd_qty, sizeof(is_bnd_qty)))		
+		return ERROR;
+
+    if (GOOD != GetParmNew(json, 6, errcode, is_par_val, sizeof(is_par_val)))		
+        return ERROR;
+
+    if (GOOD != GetParmNew(json, 7, errcode, is_trad_yn, sizeof(is_trad_yn)))		
+        return ERROR;
+
+	// gán giá trị thời gian hiện tại
+	EXEC SQL
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')
+		INTO :is_cur_dt
+		FROM DUAL;
+
+    // điều kiện check trái phiếu đã phát sinh giao dịch chưa
+	if (strcmp(is_trad_yn, "Y") == 0) 
+	{
+		Log("E:S: %s >> điều kiện phát sinh trái phiếu bnd\n", __func__);
+        strcpy(errcode, "310000");
+        return WARN;
+	}
+
+	// check điều kiện mã trái phiếu
+    if (strlen(is_bnd_cd) > 50) 
+    {
+        Log("E:S: %s >> điều kiện mã trái phiếu bnd[%s]\n", __func__, is_bnd_cd);
+        strcpy(errcode, "310000");
+        return WARN;	
+    }
+
+	// check điều kiện giá trị và số lượng trái phiếu
+	if (strcmp(is_bnd_qty, "0") < 0 || strcmp(is_par_val, "0") < 0) 
+	{
+		Log("E:S: %s >> điều kiện giá trị \n", __func__);
+        strcpy(errcode, "310000");
+        return WARN;
+	}
+
+	// check điều kiện tên trái phiếu
+    if (strlen(is_bnd_nm) == 0) 
+    {
+        Log("E:S: %s >> điều kiện tên bnd[%s]\n", __func__, is_bnd_nm);
+        strcpy(errcode, "310000");
+        return WARN;	
+    }
+
+	// check điều kiện ngày phát hành trái phiếu và đáo hạn trái phiếu
+    if ( strcmp(is_bnd_dt, is_cur_dt) > 0 || strcmp(is_cur_dt, is_due_dt) > 0 )
+	{
+        Log("E:S: %s >> điều kiện ngày  \n", __func__);
+        strcpy(errcode, "310000");
+        return WARN;	
+	}
+
+    EXEC SQL
+        INSERT INTO training_003 (
+                            BND_CD,
+                            BND_NM,
+                            BND_DT,
+                            DUE_DT,
+                            BND_QTY,
+                            PAR_VAL,
+                            TRAD_YN
+                        )
+                        VALUES(
+                            :is_bnd_cd,
+                            :is_bnd_nm,
+                            :is_bnd_dt,
+                            :is_due_dt,
+                            :is_bnd_qty,
+                            :is_par_val,
+                            :is_trad_yn
+                        );
+
+	if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT TRAINING_003:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+
+    Log("I:S:%s >>Chay thanh cong  EXEC SQL ALTxBond30_3112_01_1 \n", __func__);
+
+	asciz_8(os_bnd_dt);
+	asciz_8(os_due_dt);
+
+	asciz_1024(jsonshow);
+	asciz_200(input);
+
+	
+	EXEC SQL
+	SELECT TO_CHAR(TO_DATE(:is_bnd_dt,'yyyymmdd'), 'ddmmyyyy'),
+		   TO_CHAR(TO_DATE(:is_due_dt,'yyyymmdd'), 'ddmmyyyy')
+	 INTO 	:os_bnd_dt,
+	 		:os_due_dt
+	FROM DUAL;
+
+	if (sqlca.sqlcode != 0)
+    {
+        Log("E:S:%s >> ERROR SET ĐỊNH DẠNG NGÀY để cho checker xem trước khi duyệt!:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+        strcpy(errcode, "310000");
+        return ERROR;
+    }
+	
+	//hàm này dùng để gán thông tin cần push lên màn hình 0801 vào biến jsonshow để user trước khi duyệt giao dịch có thể check lại thông tin	
+	SysComPushAprOutput(jsonshow, "Mã TCPH trái phiếu", 					(char*)is_bnd_cd, NULL);
+    SysComPushAprOutput(jsonshow, "Tên TCPH trái phiếu", 					(char*)is_bnd_nm, NULL);
+    SysComPushAprOutput(jsonshow, "Ngày Phát Hành trái phiếu", 				(char*)os_bnd_dt, "ddmmyyyy");
+    SysComPushAprOutput(jsonshow, "Ngày Đáo Hạn trái phiếu", 				(char*)os_due_dt, "ddmmyyyy");
+    SysComPushAprOutput(jsonshow, "Số Lượng Phát Hành trái phiếu", 			(char*)is_bnd_qty, "#");
+    SysComPushAprOutput(jsonshow, "Mệnh Giá trái phiếu", 					(char*)is_par_val, "#");
+    SysComPushAprOutput(jsonshow, "Phát Sinh Giao Dịch Trên trái phiếu", 	(char*)is_trad_yn, NULL);
+	
+	long os_apr_seq;
+	asciz_100(os_mk_dt);
+	asciz_100(os_apr_stat);
+	asciz_100(os_apr_user);
+	asciz_100(os_apr_dt);
+	asciz_100(os_apr_ip);
+	asciz_100(os_work_dtm);
+	
+	SysComPushAprInput(input, (char*)is_bnd_cd);
+	SysComPushAprInput(input, (char*)is_bnd_nm);
+
+	int ret = SysComAprSpecial(json, jsonshow, input, 0, os_mk_dt, &os_apr_seq, os_apr_stat, os_apr_user, os_apr_dt, os_apr_ip, errcode);
+	if(ret != GOOD)
+	    return ret;
+	
+	Log("I:S:ALTxBond30_3112. >> Thông tin: os_apr_stat = [%s], os_apr_ip[%s], os_apr_user[%s], os_apr_seq[%d], os_mk_dt[%s]\n",
+		os_apr_stat, 
+		os_apr_ip, 
+		os_apr_user, 
+		
+		os_apr_seq, 
+		os_mk_dt);
+	
+	return GOOD;	
+}
+
+//Hàm duyệt lệnh đã được thêm vào
+int ALTxBond30_3112_01_2(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti)
+{
+	asciz_100(is_bndcd);
+
+    if (GetParmNew(json, 1, errcode, is_bndcd, sizeof(is_bndcd)) != GOOD)
+        return ERROR;
+
+    EXEC SQL
+        UPDATE training_003
+        SET TRAD_YN = 'Y'
+        WHERE BND_CD = :is_bndcd;
+
+    if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT update TRAD_YN = 'Y' TRAINING_BOND:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+    }
+
+    return GOOD;
+}
+
+//Hàm không chấp thuận yêu cầu thêm mới
+int ALTxBond30_3112_01_3(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti)
+{
+	asciz_100(is_bndcd);
+
+    if (GetParmNew(json, 1, errcode, is_bndcd, sizeof(is_bndcd)) != GOOD)
+        return ERROR;
+
+    EXEC SQL
+        DELETE training_003
+        WHERE BND_CD = :is_bndcd;
+
+    if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR DELETE --> INSERT() TRAINING_BOND:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+    }
+
+    return GOOD;
+}
+
+//Update TCPH
+int ALTxBond30_3112_01_4(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode, char anti)
+{
+	asciz_50(is_bnd_cd);
+    asciz_200(is_bnd_nm);
+
+	asciz_8(is_cur_dt);
+    asciz_8(is_bnd_dt);
+    asciz_8(is_due_dt);
+	
+    asciz_100(is_bnd_qty);
+    asciz_100(is_par_val);
+    asciz_2(is_trad_yn);
+
+	if (GOOD != GetParmNew(json, 1, errcode, is_bnd_cd, sizeof(is_bnd_cd)))		
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 2, errcode, is_bnd_nm, sizeof(is_bnd_nm)))		
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 3, errcode, is_bnd_dt, sizeof(is_bnd_dt)))		
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 4, errcode, is_due_dt, sizeof(is_due_dt)))		
+		return ERROR;
+
+    if (GOOD != GetParmNew(json, 5, errcode, is_par_val, sizeof(is_par_val)))		
+		return ERROR;
+	
+	if (GOOD != GetParmNew(json, 6, errcode, is_bnd_qty, sizeof(is_bnd_qty)))		
+		return ERROR;
+
+	if (GOOD != GetParmNew(json, 7, errcode, is_trad_yn, sizeof(is_trad_yn)))		
+		return ERROR;
+
+	// gán giá trị thời gian hiện tại
+	EXEC SQL
+		SELECT TO_CHAR(SYSDATE, 'YYYYMMDD')
+		INTO :is_cur_dt
+		FROM DUAL;
+
+	// gán giá trị state giao dịch trái phiếu
+	EXEC SQL
+		SELECT TRAD_YN 
+		INTO :is_trad_yn
+		FROM training_003
+		WHERE BND_CD = :is_bnd_cd;
+
+	if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT TABLE_NAME:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+	
+    // điều kiện check trái phiếu đã phát sinh giao dịch chưa
+	if (strcmp(is_trad_yn, "Y") == 0)
+	{
+		Log("E:S: %s >> check phát sinh giao dịch [%s]\n", __func__, is_trad_yn);
+        strcpy(errcode, "310000");
+        return WARN;
+	}
+
+	// check điều kiện tên trái phiếu
+    if (strlen(is_bnd_nm) == 0) 
+    {
+        Log("E:S: %s >> lỗi điều kiện tên trái phiếu [%s]\n", __func__, is_bnd_nm);
+        strcpy(errcode, "310000");
+        return WARN;	
+    }
+
+	// check điều kiện giá trị và số lượng trái phiếu
+	if (strcmp(is_bnd_qty, "0") < 0 || strcmp(is_par_val, "0") < 0) 
+	{
+		Log("E:S: %s >> lỗi điều kiện giá trị và số lượng \n", __func__);
+        strcpy(errcode, "310000");
+        return WARN;
+	}
+
+	// check điều kiện ngày phát hành trái phiếu và đáo hạn trái phiếu
+    if ( strcmp(is_bnd_dt, is_cur_dt) > 0 || strcmp(is_cur_dt, is_due_dt) > 0)
+	{
+        Log("E:S: %s >> lỗi điều kiện ngày \n", __func__);
+        strcpy(errcode, "310000");
+        return WARN;	
+	}
+
+
+	EXEC SQL
+	UPDATE training_003
+	SET 
+        BND_NM  = :is_bnd_nm,
+        BND_DT  = :is_bnd_dt,
+        DUE_DT  = :is_due_dt,
+        BND_QTY = :is_bnd_qty,
+        PAR_VAL = :is_par_val,
+        TRAD_YN	= :is_trad_yn
+	WHERE BND_CD = :is_bnd_cd;
+
+	if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT TABLE_NAME:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+
+	asciz_8(os_bnd_dt);
+	asciz_8(os_due_dt);
+
+	asciz_1024(jsonshow);
+	asciz_200(jsonPair);
+	
+
+	
+	EXEC SQL
+	SELECT TO_CHAR(TO_DATE(:is_bnd_dt,'yyyymmdd'), 'ddmmyyyy'),
+		   TO_CHAR(TO_DATE(:is_due_dt,'yyyymmdd'), 'ddmmyyyy')
+	INTO 	:os_bnd_dt,
+	 		:os_due_dt
+	FROM DUAL;
+	
+
+	//hàm này dùng để gán thông tin cần push lên màn hình 0801 vào biến jsonshow để user trước khi duyệt giao dịch có thể check lại thông tin	
+	SysComPushAprOutput(jsonshow, "Mã TCPH trái phiếu", 					(char*)is_bnd_cd, NULL);
+    SysComPushAprOutput(jsonshow, "Tên TCPH trái phiếu", 					(char*)is_bnd_nm, NULL);
+    SysComPushAprOutput(jsonshow, "Ngày Phát Hành trái phiếu", 				(char*)os_bnd_dt, "ddmmyyyy");
+    SysComPushAprOutput(jsonshow, "Ngày Đáo Hạn trái phiếu", 				(char*)os_due_dt, "ddmmyyyy");
+    SysComPushAprOutput(jsonshow, "Số Lượng Phát Hành trái phiếu", 			(char*)is_bnd_qty, "#");
+    SysComPushAprOutput(jsonshow, "Mệnh Giá trái phiếu", 					(char*)is_par_val, "#");
+    SysComPushAprOutput(jsonshow, "Phát Sinh Giao Dịch Trên trái phiếu", 	(char*)is_trad_yn, NULL);
+
+	//hàm này dùng để kiểm tra dịch vụ có đang chờ duyệt trên 0801 hay không
+	SysComPushAprPair(jsonPair, "ALTxBond30_3112_2", (char*)is_bnd_cd);
+	
+    asciz_200(os_mk_dt);
+    long os_seq;
+    asciz_200(os_stat);
+    asciz_200(os_user);
+    asciz_200(os_dt);
+    asciz_200(os_ip);
+    asciz_200(os_dtm);
+
+    //hàm kiểm tra dịch vụ có đang chờ duyệt trên màn hình không
+    SysComPushAprPair(jsonPair, "ALTxBond30_3112", 	(char*)is_bnd_cd);
+
+    //Hàm thêm thông tin vào table 
+    int ret = SysComAprNormal(json, jsonshow, jsonPair, 0, os_mk_dt, &os_seq, os_stat, os_user, os_dt, os_ip, os_dtm, errcode);
+
+	if(ret != GOOD)
+	    return ret;
+	// int  SysComAprNormal(const nx_json *json, char *jsonshow, char *jsonPair, double amt, char *MakerDt, long *aprSeq, char *aprStat, char *aprUser, char *aprDT, char *aprIP, char *workDTM, char *errCode);
+	Log("I:S:ALTxBond30_3112. >> Thông tin: os_apr_stat = [%s], os_apr_ip[%s], os_apr_user[%s], os_apr_seq[%d], os_mk_dt[%s]\n",
+		os_stat, 
+		os_ip, 
+		os_user, 
+		os_seq, 
+		os_mk_dt);
+	
+	return GOOD;
+}
+
+// Delete TCPH
+int ALTxBond30_3112_01_5(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut,  char *errcode, char anti){
+
+	asciz_50(is_bnd_cd);
+    asciz_100(is_bnd_nm);
+
+	asciz_2(is_trad_yn);
+
+	// gán giá trị state giao dịch trái phiếu
+	if (GOOD != GetParmNew(json, 1, errcode, is_bnd_cd, sizeof(is_bnd_cd)))		
+		return ERROR;
+    if (GOOD != GetParmNew(json, 2, errcode, is_bnd_nm, sizeof(is_bnd_nm)))		
+		return ERROR;
+
+	EXEC SQL
+	SELECT TRAD_YN 
+	INTO :is_trad_yn
+	FROM training_003
+	WHERE BND_CD = :is_bnd_cd
+	AND BND_NM = :is_bnd_nm;
+		
+	if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT TABLE_NAME:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+	// check trái phiếu đã phát sinh giao dịch chưa
+	if (strcmp(is_trad_yn, "Y") == 0) 
+	{
+		Log("E:S: %s >> dfggggg bnd[%s]\n", __func__, is_trad_yn);
+        strcpy(errcode, "310000");
+        return WARN;
+	}
+	
+	EXEC SQL
+		DELETE FROM training_003
+		WHERE BND_CD = :is_bnd_cd
+		AND BND_NM = :is_bnd_nm;
+	
+	if (sqlca.sqlcode != 0) {
+		Log("E:S:%s >> ERROR INSERT TABLE_NAME:%s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		strcpy(errcode, "310000");
+		return ERROR;
+	}
+
+	asciz_1024(jsonshow);
+	asciz_200(jsonPair);
+
+	//hàm này dùng để gán thông tin cần push lên màn hình 0801 vào biến jsonshow để user trước khi duyệt giao dịch có thể check lại thông tin	
+	SysComPushAprOutput(jsonshow, "Mã TCPH trái phiếu", 					(char*)is_bnd_cd, NULL);
+    SysComPushAprOutput(jsonshow, "Tên TCPH trái phiếu", 					(char*)is_bnd_nm, NULL);
+    SysComPushAprOutput(jsonshow, "Phát Sinh Giao Dịch Trên trái phiếu", 	(char*)is_trad_yn, NULL);	
+
+	//hàm này dùng để kiểm tra dịch vụ có đang chờ duyệt trên 0801 hay không
+	SysComPushAprPair(jsonPair, "ALTxBond30_3112_3", (char*)is_bnd_cd);
+	
+    asciz_200(os_mk_dt);
+    long os_seq;
+    asciz_200(os_stat);
+    asciz_200(os_user);
+    asciz_200(os_dt);
+    asciz_200(os_ip);
+    asciz_200(os_dtm);
+
+     //hàm push thông tin lên màn hình 0801 để cho checker xem trước khi duyệt
+    SysComPushAprOutput(jsonshow, "Mã trái phiếu", 		(char*)is_bnd_cd, NULL);
+   
+    //hàm kiểm tra dịch vụ có đang chờ duyệt trên màn hình không
+    SysComPushAprPair(jsonPair, "ALTxBond30_3112_3", 	(char*)is_bnd_cd);
+
+    //Hàm thêm thông tin vào table 
+    int ret = SysComAprNormal(json, jsonshow, jsonPair, 0, os_mk_dt, &os_seq, os_stat, os_user, os_dt, os_ip, os_dtm, errcode);
+    
+    if (ret != GOOD)
+        return ret;
+    
+    Log("I:S:ALTxBond30_3112. >> Thông tin: os_apr_stat = [%s], os_apr_ip[%s], os_apr_user[%s], os_apr_seq[%d], os_mk_dt[%s]\n",
+		os_stat, 
+		os_ip, 
+		os_user, 
+		os_seq, 
+		os_mk_dt);
+
+    return GOOD;
+
+}

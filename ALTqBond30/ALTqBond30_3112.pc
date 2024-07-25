@@ -1,0 +1,115 @@
+/*------------------------------------------------------------------------------
+	SERVICE Name          : ALTqBond24_314801                                      
+	Client  ID            : 0800 tab 1 (314801)                 
+	Name                  : BÁO CÁO DANH SÁCH KHÁCH HÀNG MỞ TÀI KHOẢN TPRL
+	Create  Date          : 2023/08/28
+------------------------------------------------------------------------------*/
+
+#include <ALTqBond30.h>
+
+EXEC SQL include sqlca.h;
+EXEC SQL include sqlda.h;
+
+typedef char asciz_2[2+1]; // 0 -> 2
+typedef char asciz_8[8+1]; // 0 -> 8
+typedef char asciz_20[20+1]; // 0 -> 20
+typedef char asciz_50[50+1]; // 0 -> 50
+typedef char asciz_200[200+1]; // 101 -> 200
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL TYPE asciz_2 IS STRING(2+1) REFERENCE;
+EXEC SQL TYPE asciz_8 IS STRING(8+1) REFERENCE;
+EXEC SQL TYPE asciz_20 IS STRING(20+1) REFERENCE;
+EXEC SQL TYPE asciz_50 IS STRING(50+1) REFERENCE;
+EXEC SQL TYPE asciz_200 IS STRING(200+1) REFERENCE;
+EXEC SQL END DECLARE SECTION;
+
+#define asciz_2(a) asciz_2 a; memset(a, 0x00, sizeof(asciz_2));
+#define asciz_8(a) asciz_8 a; memset(a, 0x00, sizeof(asciz_8));
+#define asciz_20(a) asciz_20 a; memset(a, 0x00, sizeof(asciz_20));
+#define asciz_50(a) asciz_50 a; memset(a, 0x00, sizeof(asciz_50));
+#define asciz_200(a) asciz_200 a; memset(a, 0x00, sizeof(asciz_200));
+
+int	ALTqBond30_3112(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode)
+{
+    
+    asciz_50(is_bnd_cd);
+    
+    asciz_8(is_bnd_dt);
+    asciz_8(is_due_dt);
+
+    asciz_200(os_bnd_nm);
+    asciz_20(os_bnd_qty);
+    asciz_20(os_par_val);
+    asciz_2(os_trad_yn);
+
+
+    // Lấy parm từ client
+    if (GetParmNew(json, 1, errcode, is_bnd_cd, sizeof(is_bnd_cd)) != GOOD) 
+		  return (ERROR);
+
+    if (GetParmNew(json,2, errcode, is_bnd_dt, sizeof(is_bnd_dt)) != GOOD) 
+		  return (ERROR);
+
+    if (GetParmNew(json,3, errcode, is_due_dt, sizeof(is_due_dt)) != GOOD) 
+		  return (ERROR);
+
+
+
+    EXEC SQL DECLARE c1 CURSOR FOR
+        SELECT  bnd_nm,
+                bnd_qty,
+                par_val,
+                trad_yn
+        FROM    training_003
+        WHERE   (bnd_cd like :is_bnd_cd AND :is_bnd_cd IS NOT NULL)
+                OR (bnd_dt like :is_bnd_dt AND :is_bnd_dt IS NOT NULL)
+                OR (due_dt like :is_due_dt AND :is_due_dt IS NOT NULL);
+   
+	if (sqlca.sqlcode != 0)
+	{
+		strcpy(errcode, "310000");
+		Log("E:S: %s >> ERROR select Training_003 >> %s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		return (ERROR);
+	}
+
+    EXEC SQL OPEN c1;
+
+	for(;;)
+	{   
+
+        exec sql fetch c1 into
+            :os_bnd_nm,
+            :os_bnd_qty,
+            :os_par_val,
+            :os_trad_yn;
+
+        if (sqlca.sqlcode == 1403) //Not found
+		{
+			exec sql close c1;
+			break;
+		}
+		else if (sqlca.sqlcode != 0) // các lỗi khác
+		{
+			exec sql close c1;
+			Log("E:S: %s >> ERROR fetch >> %s\n", __func__, sqlca.sqlerrm.sqlerrmc);	
+			strcpy(errcode, "310000");
+			return ERROR;
+		}
+
+        PushVal(jsonOut, os_bnd_nm,         1);
+        PushVal(jsonOut, os_bnd_qty,        1);       
+        PushVal(jsonOut, os_par_val,        1);     
+        PushVal(jsonOut, os_trad_yn,        1);     
+
+        if (PushEndLine(session, zmsg, jsonOut, errcode, 1)!= GOOD)
+        {
+            exec sql close c1;
+            return (ERROR);
+        }			
+    }
+
+    return GOOD;  
+
+    EXEC SQL CLOSE c1;   
+}

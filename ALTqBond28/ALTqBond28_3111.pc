@@ -1,0 +1,104 @@
+/*------------------------------------------------------------------------------
+	SERVICE Name          : ALTqBond24_314801                                      
+	Client  ID            : 0800 tab 1 (314801)                 
+	Name                  : BÁO CÁO DANH SÁCH KHÁCH HÀNG MỞ TÀI KHOẢN TPRL
+	Create  Date          : 2023/08/28
+------------------------------------------------------------------------------*/
+
+#include <ALTqBond28.h>
+
+EXEC SQL include sqlca.h;
+EXEC SQL include sqlda.h;
+
+typedef char asciz_20[20+1]; // 0 -> 20
+typedef char asciz_100[100+1]; // 0 -> 100
+typedef char asciz_200[200+1]; // 101 -> 200
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL TYPE asciz_20 IS STRING(20+1) REFERENCE;
+EXEC SQL TYPE asciz_100 IS STRING(100+1) REFERENCE;
+EXEC SQL TYPE asciz_200 IS STRING(200+1) REFERENCE;
+EXEC SQL END DECLARE SECTION;
+
+#define asciz_20(a) asciz_20 a; memset(a, 0x00, sizeof(asciz_20));
+#define asciz_100(a) asciz_100 a; memset(a, 0x00, sizeof(asciz_100));
+#define asciz_200(a) asciz_200 a; memset(a, 0x00, sizeof(asciz_200));
+
+int	ALTqBond28_3111(altwrk_t *session, zmsg_t *zmsg, const nx_json *json, char *jsonOut, char *errcode)
+{
+    
+    asciz_100(is_mdm_tp);
+    
+    asciz_100(is_abc);
+
+    asciz_100(os_bnd_cd);
+    asciz_100(os_iss_cd);
+    //biến global: biến này client luôn luôn truyền, cần thì get không cần thì không get
+    if (GetGlobalParm(json, "MdmTp", is_mdm_tp, errcode) != GOOD)
+		return (ERROR);
+    
+
+    if (GetParmNew(json, 1, errcode, is_abc, sizeof(is_abc)) != GOOD) //Từ ngày
+		return (ERROR);
+
+    EXEC SQL DECLARE c1 CURSOR FOR
+        SELECT  bnd_cd,
+                iss_cd
+        FROM    bnd01m01
+        WHERE   bnd_cd like :is_abc;
+	if (sqlca.sqlcode != 0)
+	{
+		strcpy(errcode, "310000");
+		Log("E:S: %s >> ERROR select BND02M07 >> %s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+		return (ERROR);
+	}
+
+    EXEC SQL OPEN c1;
+
+	for(;;)
+	{   
+
+        exec sql fetch c1 into
+            :os_bnd_cd,
+            :os_iss_cd;
+
+        if (sqlca.sqlcode == 1403) //Not found
+		{
+			exec sql close c1;
+			break;
+		}
+		else if (sqlca.sqlcode != 0) // các lỗi khác
+		{
+			exec sql close c1;
+			Log("E:S: %s >> ERROR fetch >> %s\n", __func__, sqlca.sqlerrm.sqlerrmc);	
+			strcpy(errcode, "310000");
+			return ERROR;
+		}
+
+        PushVal(jsonOut, os_bnd_cd,                     1);
+        PushVal(jsonOut, os_iss_cd,                     1);       
+
+        if (PushEndLine(session, zmsg, jsonOut, errcode, 1)!= GOOD)
+        {
+            exec sql close c1;
+            return (ERROR);
+        }			
+    }
+
+    return GOOD;     
+}
+
+ // EXEC SQL
+    // SELECT  COUNT(*)
+    // INTO :os_checked
+    // FROM    bnd01m01
+    // WHERE   bnd_cd like :is_abc;
+
+    // if (sqlca.sqlcode != 0)
+	// {
+	// 	strcpy(errcode, "310000");
+	// 	Log("E:S: %s >> ERROR COUNT BND02M07 >> %s\n", __func__, sqlca.sqlerrm.sqlerrmc);
+	// 	return (ERROR);
+	// }     
+
+    // Log("I:S:%s >> ERROR COUNT  %s\n", __func__, os_checked);
